@@ -11,9 +11,7 @@ int main(void) {
 
   SetExitKey(KEY_Q);
 
-  while (!WindowShouldClose() && is_running(game)) {
-    game_input(game);
-
+  while (!WindowShouldClose() && game_is_running(game)) {
     game_update(game);
 
     BeginDrawing();

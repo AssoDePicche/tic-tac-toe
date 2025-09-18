@@ -113,61 +113,73 @@ static size_t index_2d_to_1d(const size_t x, const size_t y) {
   return BOARD_ROWS * y + x;
 }
 
+static bool cells_are_equal(const Game* this, const size_t i, const size_t j,
+                            const size_t k, const char buffer) {
+  return this->buffer[i] == this->buffer[j] &&
+         this->buffer[i] == this->buffer[k] && this->buffer[i] == buffer;
+}
+
+static bool row_cells_are_equal(const Game* this, const size_t row,
+                                const char player) {
+  const size_t i = index_2d_to_1d(0, row);
+
+  const size_t j = index_2d_to_1d(1, row);
+
+  const size_t k = index_2d_to_1d(2, row);
+
+  return cells_are_equal(this, i, j, k, player);
+}
+
+static bool column_cells_are_equal(const Game* this, const size_t column,
+                                   const char player) {
+  const size_t i = index_2d_to_1d(column, 0);
+
+  const size_t j = index_2d_to_1d(column, 1);
+
+  const size_t k = index_2d_to_1d(column, 2);
+
+  return cells_are_equal(this, i, j, k, player);
+}
+
+static bool primary_diagonal_cells_are_equal(const Game* this,
+                                             const char player) {
+  const size_t i = index_2d_to_1d(0, 0);
+
+  const size_t j = index_2d_to_1d(1, 1);
+
+  const size_t k = index_2d_to_1d(2, 2);
+
+  return cells_are_equal(this, i, j, k, player);
+}
+
+static bool secondary_diagonal_cells_are_equal(const Game* this,
+                                               const char player) {
+  const size_t i = index_2d_to_1d(0, 2);
+
+  const size_t j = index_2d_to_1d(1, 1);
+
+  const size_t k = index_2d_to_1d(2, 0);
+
+  return cells_are_equal(this, i, j, k, player);
+}
+
 static bool have_player_won(const Game* this, const char player) {
-  // SCAN BOARD_ROWS
+  if (primary_diagonal_cells_are_equal(this, player)) {
+    return true;
+  }
 
-  for (size_t row = 0; row < BOARD_ROWS; ++row) {
-    const size_t x1 = index_2d_to_1d(0, row);
+  if (secondary_diagonal_cells_are_equal(this, player)) {
+    return true;
+  }
 
-    const size_t x2 = index_2d_to_1d(1, row);
-
-    const size_t x3 = index_2d_to_1d(2, row);
-
-    if (this->buffer[x1] == this->buffer[x2] &&
-        this->buffer[x1] == this->buffer[x3]) {
-      return player == this->buffer[x1];
+  for (size_t index = 0; index < BOARD_ROWS; ++index) {
+    if (row_cells_are_equal(this, index, player)) {
+      return true;
     }
-  }
 
-  // SCAN COLUMNS
-
-  for (size_t column = 0; column < BOARD_COLUMNS; ++column) {
-    const size_t y1 = index_2d_to_1d(column, 0);
-
-    const size_t y2 = index_2d_to_1d(column, 1);
-
-    const size_t y3 = index_2d_to_1d(column, 2);
-
-    if (this->buffer[y1] == this->buffer[y2] &&
-        this->buffer[y1] == this->buffer[y3]) {
-      return player == this->buffer[y1];
+    if (column_cells_are_equal(this, index, player)) {
+      return true;
     }
-  }
-
-  // SCAN LEFT TO RIGHT DIAGONAL
-
-  const size_t d1 = index_2d_to_1d(0, 0);
-
-  const size_t d2 = index_2d_to_1d(1, 1);
-
-  const size_t d3 = index_2d_to_1d(2, 2);
-
-  if (this->buffer[d1] == this->buffer[d2] &&
-      this->buffer[d1] == this->buffer[d3]) {
-    return player == this->buffer[d1];
-  }
-
-  // SCAN RIGHT TO LEFT DIAGONAL
-
-  const size_t b1 = index_2d_to_1d(0, 2);
-
-  const size_t b2 = index_2d_to_1d(1, 1);
-
-  const size_t b3 = index_2d_to_1d(2, 0);
-
-  if (this->buffer[b1] == this->buffer[b2] &&
-      this->buffer[b1] == this->buffer[b3]) {
-    return player == this->buffer[b1];
   }
 
   return false;
@@ -187,9 +199,7 @@ static GameState current_game_state(const Game* game) {
   return GAME_STATE_UNFINISHED;
 }
 
-void game_update(Game* this) { this->state = current_game_state(this); }
-
-void game_input(Game* this) {
+static void game_input(Game* this) {
   if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
       !IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
     return;
@@ -207,13 +217,18 @@ void game_input(Game* this) {
     return;
   }
 
-  if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-    this->buffer[index] = BOARD_PLAYER_1;
-  } else {
-    this->buffer[index] = BOARD_PLAYER_2;
-  }
+  const char player =
+      IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ? BOARD_PLAYER_1 : BOARD_PLAYER_2;
+
+  this->buffer[index] = player;
 }
 
-bool is_running(const Game* this) {
+void game_update(Game* this) {
+  game_input(this);
+
+  this->state = current_game_state(this);
+}
+
+bool game_is_running(const Game* this) {
   return this->state == GAME_STATE_UNFINISHED;
 }

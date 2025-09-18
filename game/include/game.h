@@ -19,8 +19,6 @@ void game_draw(const Game*);
 
 void game_update(Game*);
 
-void game_input(Game*);
-
-bool is_running(const Game*);
+bool game_is_running(const Game*);
 
 #endif
