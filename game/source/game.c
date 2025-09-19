@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <raylib.h>
+#include <raymath.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -9,6 +10,10 @@
 #define BOARD_BLANK '_'
 #define BOARD_ROWS 3
 #define BOARD_COLUMNS 3
+
+#define INDEX2D1D(X, Y) (BOARD_ROWS * Y + X)
+#define INDEX1D2D(INDEX) \
+  (Vector2) { .x = INDEX % BOARD_ROWS, .y = INDEX / BOARD_COLUMNS, }
 
 typedef enum {
   GAME_STATE_PLAYER_1_WON,
@@ -53,15 +58,24 @@ static void draw_game_board(void) {
 }
 
 static void draw_player_1(const int x, const int y) {
-  DrawLine(0 + x, 0 + y, WINDOW_CELL_SIZE + x, WINDOW_CELL_SIZE + y, RED);
+  DrawLine(x, y, WINDOW_CELL_SIZE + x, WINDOW_CELL_SIZE + y, RED);
 
-  DrawLine(WINDOW_CELL_SIZE + x, 0 + y, 0 + x, WINDOW_CELL_SIZE + y, RED);
+  DrawLine(WINDOW_CELL_SIZE + x, y, x, WINDOW_CELL_SIZE + y, RED);
 }
 
 static void draw_player_2(const int x, const int y) {
-  const int RADIUS = WINDOW_CELL_SIZE / 2;
+  const int radius = (WINDOW_CELL_SIZE / 2) - WINDOW_OFFSET;
 
-  DrawCircleLines(x + RADIUS, y + RADIUS, RADIUS, BLUE);
+  const int inner_radius = radius - WINDOW_HALF_OFFSET;
+
+  const int outer_radius = radius + WINDOW_HALF_OFFSET;
+
+  DrawRing(
+      (Vector2){
+          .x = x + radius + WINDOW_OFFSET,
+          .y = y + radius + WINDOW_OFFSET,
+      },
+      inner_radius, outer_radius, 0, 360, 30, BLUE);
 }
 
 static int current_cell_third(int point) {
@@ -77,13 +91,24 @@ static int current_cell_third(int point) {
 }
 
 static void draw_hover(void) {
+  if (!IsCursorOnScreen()) {
+    return;
+  }
+
   const Vector2 mouse = GetMousePosition();
 
   const int x = current_cell_third(mouse.x);
 
   const int y = current_cell_third(mouse.y);
 
-  DrawRectangle(x, y, WINDOW_CELL_SIZE, WINDOW_CELL_SIZE, BLUE);
+  DrawRectangleRoundedLinesEx(
+      (Rectangle){
+          .x = x + WINDOW_OFFSET / 2,
+          .y = y + WINDOW_OFFSET / 2,
+          .width = WINDOW_CELL_SIZE - WINDOW_OFFSET,
+          .height = WINDOW_CELL_SIZE - WINDOW_OFFSET,
+      },
+      .15, 1, 4, BLUE);
 }
 
 void game_draw(const Game* this) {
@@ -92,9 +117,11 @@ void game_draw(const Game* this) {
   draw_game_board();
 
   for (size_t index = 0; index < BOARD_ROWS * BOARD_COLUMNS; ++index) {
-    const int x = (index % BOARD_ROWS) * WINDOW_CELL_SIZE;
+    const Vector2 point = Vector2Scale(INDEX1D2D(index), WINDOW_CELL_SIZE);
 
-    const int y = (index / BOARD_COLUMNS) * WINDOW_CELL_SIZE;
+    const int x = point.x;
+
+    const int y = point.y;
 
     switch (this->buffer[index]) {
       case BOARD_PLAYER_1:
@@ -109,10 +136,6 @@ void game_draw(const Game* this) {
   }
 }
 
-static size_t index_2d_to_1d(const size_t x, const size_t y) {
-  return BOARD_ROWS * y + x;
-}
-
 static bool cells_are_equal(const Game* this, const size_t i, const size_t j,
                             const size_t k, const char buffer) {
   return this->buffer[i] == this->buffer[j] &&
@@ -121,44 +144,44 @@ static bool cells_are_equal(const Game* this, const size_t i, const size_t j,
 
 static bool row_cells_are_equal(const Game* this, const size_t row,
                                 const char player) {
-  const size_t i = index_2d_to_1d(0, row);
+  const size_t i = INDEX2D1D(0, row);
 
-  const size_t j = index_2d_to_1d(1, row);
+  const size_t j = INDEX2D1D(1, row);
 
-  const size_t k = index_2d_to_1d(2, row);
+  const size_t k = INDEX2D1D(2, row);
 
   return cells_are_equal(this, i, j, k, player);
 }
 
 static bool column_cells_are_equal(const Game* this, const size_t column,
                                    const char player) {
-  const size_t i = index_2d_to_1d(column, 0);
+  const size_t i = INDEX2D1D(column, 0);
 
-  const size_t j = index_2d_to_1d(column, 1);
+  const size_t j = INDEX2D1D(column, 1);
 
-  const size_t k = index_2d_to_1d(column, 2);
+  const size_t k = INDEX2D1D(column, 2);
 
   return cells_are_equal(this, i, j, k, player);
 }
 
 static bool primary_diagonal_cells_are_equal(const Game* this,
                                              const char player) {
-  const size_t i = index_2d_to_1d(0, 0);
+  const size_t i = INDEX2D1D(0, 0);
 
-  const size_t j = index_2d_to_1d(1, 1);
+  const size_t j = INDEX2D1D(1, 1);
 
-  const size_t k = index_2d_to_1d(2, 2);
+  const size_t k = INDEX2D1D(2, 2);
 
   return cells_are_equal(this, i, j, k, player);
 }
 
 static bool secondary_diagonal_cells_are_equal(const Game* this,
                                                const char player) {
-  const size_t i = index_2d_to_1d(0, 2);
+  const size_t i = INDEX2D1D(0, 2);
 
-  const size_t j = index_2d_to_1d(1, 1);
+  const size_t j = INDEX2D1D(1, 1);
 
-  const size_t k = index_2d_to_1d(2, 0);
+  const size_t k = INDEX2D1D(2, 0);
 
   return cells_are_equal(this, i, j, k, player);
 }
@@ -211,7 +234,7 @@ static void game_input(Game* this) {
 
   const int y = (int)(BOARD_ROWS * position.y / WINDOW_SIZE);
 
-  const size_t index = index_2d_to_1d(x, y);
+  const size_t index = INDEX2D1D(x, y);
 
   if (this->buffer[index] != BOARD_BLANK) {
     return;
